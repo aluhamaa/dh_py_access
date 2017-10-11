@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from lib.datasets import datasets
+# from lib.datasets import datasets
+from . datasets import datasets
 
 class datahub:
     def __init__(self,server,version):

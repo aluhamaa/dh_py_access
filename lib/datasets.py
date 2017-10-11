@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from lib.parse_urls import parse_urls
+# from lib.parse_urls import parse_urls
+from . parse_urls import parse_urls
 
 class datasets:
     def __init__(self,apikey,server="api.planetos.com",version="v1",endpoint="datasets"):

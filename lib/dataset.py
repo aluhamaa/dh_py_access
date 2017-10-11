@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 
 import requests
+import pandas as pd
 from netCDF4 import Dataset
 
-from lib.parse_urls import parse_urls
+# from lib.parse_urls import parse_urls
+from . parse_urls import parse_urls
 
 class dataset:
     def __init__(self,datasetkey,datahub):
@@ -16,13 +18,13 @@ class dataset:
         return variables.r.json()['variables']
 
     def variable_names(self):
-        return list(map(lambda x: x['variableKey'], self.variables()))
+        return sorted(list(set(list(map(lambda x: x['variableKey'], self.variables())))))
 
     def standard_names(self):
         """
         return list of standard names of variables
         """
-        return self.return_names('standard_name')
+        return sorted(list(set(self.return_names('standard_name'))))
 
     def return_names(self,nameversion):
         """
@@ -35,7 +37,7 @@ class dataset:
                     for i in k[j]:
                         if i['attributeKey']==nameversion:
                             stdnames.append(i['attributeValue'])
-        return stdnames
+        return sorted(list(set(stdnames)))
 
     def get_standard_name_from_variable_name(self,varname):
         for i in self.variables():
@@ -57,7 +59,7 @@ class dataset:
         return first file tds path that contains variable name, should work with either standard or long name!
         """
 
-        tdaddr="http://{0}/{1}/data/dataset_physical_contents/fmi_hirlam_surface?apikey={2}".format(self.datahub.server,self.datahub.version,self.datahub.apikey)
+        tdaddr="http://{0}/{1}/data/dataset_physical_contents/{2}?apikey={3}".format(self.datahub.server,self.datahub.version,self.datasetkey,self.datahub.apikey)
         r=requests.get(tdaddr).json()
         for htt in r:
             found_vars=[j for j in htt['variables'] for i in j if j[i]==variable]
@@ -65,7 +67,15 @@ class dataset:
                 return htt['planetosOpenDAPVariables']
 
     def get_tds_field(self,variable):
-        tdsfile=self.get_tds_file(self.get_standard_name_from_variable_name(variable))
+        stdname=self.get_standard_name_from_variable_name(variable)
+        if not stdname:
+            stdname=variable
+        if len(stdname)==0:
+            stdname=variable  
+##        print("stdname in get_field",stdname)
+        tdsfile=self.get_tds_file(variable)
+        assert len(tdsfile)>10, "could not determine TDS path, cannot continue"
+##        print('TDS file',tdsfile)
         ds = Dataset(tdsfile)
         vari = ds.variables[variable]
         dimlen = len(vari.dimensions)
@@ -76,4 +86,23 @@ class dataset:
         elif dimlen==2:
             return vari[:,:]
         else:
-            raise ValueError("Cannot return 2D array for {0}".format(variable))
+            return vari[:]
+            ## raise ValueError("Cannot return 2D array for {0}".format(variable))
+
+    def get_json_data_in_pandas(self,count=10,z='all',pandas=True,**kwargs):
+        def convert_json_to_some_pandas(injson):
+            param_list = ['axes','data']
+            new_dict = {}
+            [new_dict.update({i:[]}) for i in param_list]
+            [(new_dict['axes'].append(i['axes']),new_dict['data'].append(i['data'])) for i in injson];
+            pd_temp = pd.DataFrame(injson)
+            dev_frame = pd_temp[['context','axes']].join(pd.concat([pd.DataFrame(new_dict[i]) for i in param_list],axis=1))
+            dev_frame = dev_frame[dev_frame['reftime'] == dev_frame['reftime'][0]]
+            return dev_frame
+        if not 'count' in kwargs:
+            kwargs['count'] = count
+        if not 'z' in kwargs:
+            kwargs["z"]=z
+        retjson=parse_urls(self.datahub.server,self.datahub.version,"datasets/{0}/point".format(self.datasetkey),self.datahub.apikey,clean_reftime=False,**kwargs).r.json()
+        if pandas: retjson=convert_json_to_some_pandas(retjson['entries'])
+        return retjson

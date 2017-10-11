@@ -5,11 +5,12 @@ import requests
 
 
 class parse_urls:
-    def __init__(self,host,version,endpoint,apikey):
+    def __init__(self,host,version,endpoint,apikey,**kwargs):
         """
         host: like api.planetos.com/
         """
         reqstr="https://{0}/{1}/{2}?apikey={3}".format(host,version,endpoint,apikey)
-        print(reqstr)
-        self.r = requests.get("https://{0}/{1}/{2}?apikey={3}".format(host,version,endpoint,apikey))
+        for i,j in kwargs.items():
+            reqstr += "&{0}={1}".format(i,j)
+        self.r = requests.get(reqstr)
         
