@@ -24,7 +24,7 @@ class dataset:
         """
         return list of standard names of variables
         """
-        return sorted(list(set(self.return_names('standard_name'))))
+        return self.return_names('standard_name')
 
     def return_names(self,nameversion):
         """
